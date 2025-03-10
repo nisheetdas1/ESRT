@@ -202,16 +202,20 @@ def valid(scale):
         sr_img = utils.tensor2np(pre.detach()[0])
         gt_img = utils.tensor2np(hr_tensor.detach()[0])
         crop_size = args.scale
+        print("sr_img", sr_img.shape)
+        print("gt_img", gt_img.shape)
         cropped_sr_img = utils.shave(sr_img, crop_size)
         cropped_gt_img = utils.shave(gt_img, crop_size)
+        print("cropped_sr_img", cropped_sr_img.shape)
+        print("cropped_gt_img", cropped_gt_img.shape)
         if args.isY is True:
             im_label = utils.quantize(sc.rgb2ycbcr(cropped_gt_img)[:, :, 0])
             im_pre = utils.quantize(sc.rgb2ycbcr(cropped_sr_img)[:, :, 0])
         else:
             im_label = cropped_gt_img
             im_pre = cropped_sr_img
-        # print(im_pre.shape)
-        # print(im_label.shape)
+        print("im_pre", im_pre.shape)
+        print("im_label", im_label.shape)
         avg_psnr += utils.compute_psnr(im_pre, im_label)
         avg_ssim += utils.compute_ssim(im_pre, im_label)
     print("===> Valid. psnr: {:.4f}, ssim: {:.4f}".format(avg_psnr / len(testing_data_loader), avg_ssim / len(testing_data_loader)))

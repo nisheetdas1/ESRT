@@ -28,6 +28,7 @@ def time_text(t):
         return '{:.1f}m'.format(t / 60)
     else:
         return '{:.1f}s'.format(t)
+
 def compute_psnr(im1, im2):
     p = psnr(im1, im2)
     return p
