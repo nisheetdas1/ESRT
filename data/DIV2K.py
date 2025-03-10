@@ -3,6 +3,8 @@ import os.path
 import cv2
 import numpy as np
 from data import common
+from utils import base_path
+
 
 def default_loader(path):
     return cv2.imread(path, cv2.IMREAD_UNCHANGED)[:, :, [2, 1, 0]]
@@ -14,7 +16,7 @@ IMG_EXTENSIONS = [
     '.png', '.npy',
 ]
 
-base_path = os.path.dirname(os.path.abspath('train.py'))
+# base_path = os.path.dirname(os.path.abspath('train.py'))
 
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)

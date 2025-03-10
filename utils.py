@@ -6,6 +6,9 @@ import torch
 from collections import OrderedDict
 
 import time
+
+base_path = '/home/sagemaker-user/ESRT/'
+
 class Timer():
 
     def __init__(self):

@@ -5,7 +5,10 @@ from torchvision.transforms import Compose, ToTensor
 from PIL import Image
 import numpy as np
 
-base_path = dirname(abspath('train.py'))
+from utils import base_path
+
+
+# base_path = dirname(abspath('train.py'))
 
 
 def img_modcrop(image, modulo):
