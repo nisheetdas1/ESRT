@@ -2,15 +2,11 @@ from model import common
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from thop import profile
-from util.non  import NONLocalBlock2D
-from util.tools import extract_image_patches,\
-    reduce_mean, reduce_sum, same_padding, reverse_patches
+# from thop import profile
+# from util.non  import NONLocalBlock2D
+from util.tools import reverse_patches # extract_image_patches,reduce_mean, reduce_sum, same_padding,
 
-from util.transformer import drop_path, DropPath, PatchEmbed, Mlp,MLABlock
-from util.position import PositionEmbeddingLearned, PositionEmbeddingSine
-import pdb
-import math
+from util.transformer import MLABlock
 
 def make_model(upscale=4):
     # inpu = torch.randn(1, 3, 320, 180).cpu()
@@ -201,7 +197,7 @@ class ESRT(nn.Module):
         self.reduce = conv(n_blocks*n_feats, n_feats, kernel_size)
 
 
-    def forward(self, x1,x2 = None, test=False):
+    def forward(self, x1, x2 = None, test=False):
         # x1 = self.sub_mean(x1)
         x1 = self.head(x1)
         res2 = x1

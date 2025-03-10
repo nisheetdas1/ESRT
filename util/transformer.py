@@ -2,7 +2,7 @@ from model import common
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from thop import profile
+# from thop import profile
 from util.tools import extract_image_patches,\
     reduce_mean, reduce_sum, same_padding, reverse_patches
 from util.position import PositionEmbeddingLearned, PositionEmbeddingSine

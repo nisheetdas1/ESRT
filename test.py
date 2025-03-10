@@ -27,8 +27,8 @@ opt = parser.parse_args()
 
 print(opt)
 def forward_chop(model, x, shave=10, min_size=60000):
-    scale = 4#self.scale[self.idx_scale]
-    n_GPUs = 1#min(self.n_GPUs, 4)
+    scale = 4 #self.scale[self.idx_scale]
+    n_GPUs = 1 #min(self.n_GPUs, 4)
     b, c, h, w = x.size()
     h_half, w_half = h // 2, w // 2
     h_size, w_size = h_half + shave, w_half + shave
@@ -36,7 +36,8 @@ def forward_chop(model, x, shave=10, min_size=60000):
         x[:, :, 0:h_size, 0:w_size],
         x[:, :, 0:h_size, (w - w_size):w],
         x[:, :, (h - h_size):h, 0:w_size],
-        x[:, :, (h - h_size):h, (w - w_size):w]]
+        x[:, :, (h - h_size):h, (w - w_size):w]
+    ]
 
     if w_size * h_size < min_size:
         sr_list = []

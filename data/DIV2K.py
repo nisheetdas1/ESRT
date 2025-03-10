@@ -14,11 +14,14 @@ IMG_EXTENSIONS = [
     '.png', '.npy',
 ]
 
+base_path = os.path.dirname(os.path.abspath('train.py'))
+
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in IMG_EXTENSIONS)
 
 def make_dataset(dir):
     images = []
+    dir = base_path + dir
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
 
     for root, _, fnames in sorted(os.walk(dir)):
@@ -33,7 +36,7 @@ class div2k(data.Dataset):
     def __init__(self, opt):
         self.opt = opt
         self.scale = self.opt.scale
-        self.root = self.opt.root
+        self.root = os.path.join(base_path, self.opt.root)
         self.ext = self.opt.ext   # '.png' or '.npy'(default)
         self.train = True if self.opt.phase == 'train' else False
         self.repeat = 10#self.opt.test_every // (self.opt.n_train // self.opt.batch_size)

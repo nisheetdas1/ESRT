@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from model import architecture, esrt
+from model import esrt #, architecture
 from data import DIV2K, Set5_val
 import utils
 import skimage.color as sc
@@ -35,7 +35,7 @@ parser.add_argument("--start-epoch", default=1, type=int,
                     help="manual epoch number")
 parser.add_argument("--threads", type=int, default=8,
                     help="number of threads for data loading")
-parser.add_argument("--root", type=str, default="/data0/luzs/dataset/",
+parser.add_argument("--root", type=str, default="/dataset",
                     help='dataset directory')
 parser.add_argument("--n_train", type=int, default=800,
                     help="number of training set")
@@ -239,7 +239,7 @@ for epoch in range(args.start_epoch, args.nEpochs + 1):
     epoch_start = datetime.datetime.now()
     valid(args.scale)
     train(epoch)
-    if epoch%10==0:
+    if epoch % 10==0:
         save_checkpoint(epoch)
     epoch_end = datetime.datetime.now()
     print('Epoch cost times: %s' % str(epoch_end-epoch_start))

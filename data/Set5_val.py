@@ -1,9 +1,11 @@
 import torch.utils.data as data
-from os.path import join
+from os.path import join, dirname, abspath
 from os import listdir
 from torchvision.transforms import Compose, ToTensor
 from PIL import Image
 import numpy as np
+
+base_path = dirname(abspath('train.py'))
 
 
 def img_modcrop(image, modulo):
@@ -31,6 +33,9 @@ def load_image(filepath):
 class DatasetFromFolderVal(data.Dataset):
     def __init__(self, hr_dir, lr_dir, upscale):
         super(DatasetFromFolderVal, self).__init__()
+        hr_dir = join(base_path, hr_dir)
+        lr_dir = join(base_path, lr_dir)
+
         self.hr_filenames = sorted([join(hr_dir, x) for x in listdir(hr_dir) if is_image_file(x)])
         self.lr_filenames = sorted([join(lr_dir, x) for x in listdir(lr_dir) if is_image_file(x)])
         self.upscale = upscale
