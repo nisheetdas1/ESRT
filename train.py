@@ -145,7 +145,7 @@ def train(epoch):
         if iteration % 100 == 0:
             print("===> Epoch[{}]({}/{}): Loss_l1: {:.5f}".format(epoch, iteration, len(training_data_loader),
                                                                   loss_l1.item()))
-def forward_chop(model, x, scale, shave=10, min_size=60000):
+def forward_chop(model, x, scale, shave=0, min_size=60000):
     # scale = scale#self.scale[self.idx_scale]
     n_GPUs = 1#min(self.n_GPUs, 4)
     b, c, h, w = x.size()
