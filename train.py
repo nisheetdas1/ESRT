@@ -72,6 +72,8 @@ torch.manual_seed(seed)
 cuda = args.cuda
 device = torch.device('cuda' if cuda else 'cpu')
 
+print("===> DEVICE: ", device)
+
 print("===> Loading datasets")
 
 trainset = DIV2K.div2k(args)
