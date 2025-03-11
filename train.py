@@ -10,6 +10,7 @@ import skimage.color as sc
 import random
 from collections import OrderedDict
 import datetime
+import wandb
 from importlib import import_module
 # os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
@@ -120,15 +121,39 @@ if args.pretrained:
     else:
         print("===> no models found at '{}'".format(args.pretrained))
 
+print("===> WANBD INIT AND SETUP")
+
+wandb.login(key="6b8966b4154c1ea7f7b69ccc6e342b6d21e8b92d") # API Key is in your wandb account, under settings (wandb.ai/settings)
+
+
+config = {
+    'epoch': args.nEpochs,
+    'lr': args.lr,
+    'gamma': args.gamma,
+    'batch_size': args.batch_size
+}
+
+run = wandb.init(
+    name = "attempt3", ## Wandb creates random run names if you skip this field
+    reinit = True, ### Allows reinitalizing runs when you re-run this cell
+    # run_id = ### Insert specific run id here if you want to resume a previous run
+    # resume = "must" ### You need this to resume previous runs, but comment out reinit = True when using this
+    project = "idls25-ESRT", ### Project should be created in your wandb account
+    config = config ### Wandb Config for your run
+)
+
+
+
 print("===> Setting Optimizer")
 
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
 
-def train(epoch):
+def train(epoch) -> float:
     model.train()
     utils.adjust_learning_rate(optimizer, epoch, args.step_size, args.lr, args.gamma)
     print('epoch =', epoch, 'lr = ', optimizer.param_groups[0]['lr'])
+    total_loss = 0
     for iteration, (lr_tensor, hr_tensor) in enumerate(training_data_loader, 1):
 
         if args.cuda:
@@ -139,12 +164,14 @@ def train(epoch):
         sr_tensor = model(lr_tensor)
         loss_l1 = l1_criterion(sr_tensor, hr_tensor)
         loss_sr = loss_l1
+        total_loss += loss_l1.item()
 
         loss_sr.backward()
         optimizer.step()
         if iteration % 100 == 0:
-            print("===> Epoch[{}]({}/{}): Loss_l1: {:.5f}".format(epoch, iteration, len(training_data_loader),
-                                                                  loss_l1.item()))
+            print("===> Epoch[{}]({}/{}): Loss_l1: {:.5f}".format(epoch, iteration, len(training_data_loader), loss_l1.item()))
+    return total_loss / len(training_data_loader)
+
 def forward_chop(model, x, scale, shave=0, min_size=60000):
     # scale = scale#self.scale[self.idx_scale]
     n_GPUs = 1#min(self.n_GPUs, 4)
@@ -186,7 +213,7 @@ def forward_chop(model, x, scale, shave=0, min_size=60000):
 
     return output
 
-def valid(scale):
+def valid(scale) -> (float, float):
     model.eval()
 
     avg_psnr, avg_ssim = 0, 0
@@ -219,6 +246,7 @@ def valid(scale):
         avg_psnr += utils.compute_psnr(im_pre, im_label)
         avg_ssim += utils.compute_ssim(im_pre, im_label)
     print("===> Valid. psnr: {:.4f}, ssim: {:.4f}".format(avg_psnr / len(testing_data_loader), avg_ssim / len(testing_data_loader)))
+    return avg_psnr / len(testing_data_loader), avg_ssim / len(testing_data_loader)
 
 
 def save_checkpoint(epoch):
@@ -243,9 +271,9 @@ timer = utils.Timer()
 for epoch in range(args.start_epoch, args.nEpochs + 1):
     t_epoch_start = timer.t()
     epoch_start = datetime.datetime.now()
-    valid(args.scale)
-    train(epoch)
-    if epoch % 10==0:
+    psnr, ssim = valid(args.scale)
+    train_loss_for_epoch = train(epoch)
+    if epoch % 10 == 0:
         save_checkpoint(epoch)
     epoch_end = datetime.datetime.now()
     print('Epoch cost times: %s' % str(epoch_end-epoch_start))
@@ -253,6 +281,14 @@ for epoch in range(args.start_epoch, args.nEpochs + 1):
     prog = (epoch-args.start_epoch+1)/(args.nEpochs + 1 - args.start_epoch + 1)
     t_epoch = utils.time_text(t - t_epoch_start)
     t_elapsed, t_all = utils.time_text(t), utils.time_text(t / prog)
+    metrics = {
+        'time_elapsed': t_elapsed,
+        'epoch': epoch,
+        'train_loss': train_loss_for_epoch,
+        'psnr': psnr,
+        'ssim': ssim
+    }
+    run.log(metrics)
     print('{} {}/{}'.format(t_epoch, t_elapsed, t_all))
 code_end = datetime.datetime.now()
 print('Code cost times: %s' % str(code_end-code_start))
