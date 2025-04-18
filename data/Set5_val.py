@@ -38,9 +38,8 @@ class DatasetFromFolderVal(data.Dataset):
         super(DatasetFromFolderVal, self).__init__()
         hr_dir = join(base_path, hr_dir)
         lr_dir = join(base_path, lr_dir)
-
-        self.hr_filenames = sorted([join(hr_dir, x) for x in listdir(hr_dir) if is_image_file(x)])
-        self.lr_filenames = sorted([join(lr_dir, x) for x in listdir(lr_dir) if is_image_file(x)])
+        self.hr_filenames = sorted([join(hr_dir, f) for f in listdir(hr_dir) if f.endswith('_HR.png')])
+        self.lr_filenames = sorted([join(lr_dir, f) for f in listdir(lr_dir) if f.endswith('_LR.png')])
         self.upscale = upscale
 
     def __getitem__(self, index):

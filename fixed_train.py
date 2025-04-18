@@ -81,8 +81,8 @@ print("===> Loading datasets")
 # Training Dataset
 trainset = DIV2K.div2k(args)
 testset = Set5_val.DatasetFromFolderVal(
-    "Test_Datasets/Set5/X{}/HR".format(args.scale),
-    "Test_Datasets/Set5/X{}/LR".format(args.scale),
+    "dataset/BSD100/image_SRF_3",
+    "dataset/BSD100/image_SRF_3",
     args.scale
 )
 training_data_loader = DataLoader(dataset=trainset, num_workers=args.threads, batch_size=args.batch_size, shuffle=True, pin_memory=True, drop_last=True)
@@ -121,6 +121,33 @@ if args.pretrained:
 
     else:
         print("===> no models found at '{}'".format(args.pretrained))
+
+print("===> WANDB INIT AND SETUP")
+
+try:
+    wandb.login(key="6b8966b4154c1ea7f7b69ccc6e342b6d21e8b92d") # API Key is in your wandb account, under settings (wandb.ai/settings)
+
+    config = {
+        'epoch': args.nEpochs,
+        'lr': args.lr,
+        'gamma': args.gamma,
+        'batch_size': args.batch_size
+    }
+
+    run = wandb.init(
+        #  add name here for label
+        name = "BSD-attempt1", ## Wandb creates random run names if you skip this field
+        reinit = True, ### Allows reinitalizing runs when you re-run this cell
+        # run_id = ### Insert specific run id here if you want to resume a previous run
+        # resume = "must" ### You need this to resume previous runs, but comment out reinit = True when using this
+        project = "idls25-ESRT", ### Project should be created in your wandb account
+        config = config ### Wandb Config for your run
+    )
+    use_wandb = True
+except Exception as e:
+    print(f"Error initializing wandb: {str(e)}")
+    print("Continuing without wandb logging")
+    use_wandb = False
 
 print("===> Setting Optimizer")
 optimizer = optim.Adam(model.parameters(), lr=args.lr)
