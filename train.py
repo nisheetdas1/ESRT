@@ -82,7 +82,7 @@ print("===> Loading datasets")
 # Training Dataset
 trainset = DIV2K.div2k(args)
 testset = validation_dataset.DatasetFromFolderVal(
-    "Test_Datasets/Set5",
+    "Val_Datasets/Merged",
     args.scale
 )
 
