@@ -4,6 +4,7 @@ from os import listdir
 from torchvision.transforms import Compose, ToTensor
 from PIL import Image
 import numpy as np
+import os
 
 from utils import base_path
 
@@ -34,10 +35,17 @@ def load_image(filepath):
 
 
 class DatasetFromFolderVal(data.Dataset):
-    def __init__(self, hr_dir, lr_dir, upscale):
+    def __init__(self, base_val_dir, upscale):
         super(DatasetFromFolderVal, self).__init__()
-        hr_dir = join(base_path, hr_dir)
-        lr_dir = join(base_path, lr_dir)
+        base_val_dir = join(base_path, base_val_dir)
+        hr_dir = join(base_val_dir, 'HR')
+        lr_dir = join(base_val_dir, 'LR', f'X{upscale}')
+
+        if not os.path.exists(hr_dir):
+            raise FileNotFoundError(f"HR directory not found: {hr_dir}")
+        if not os.path.exists(lr_dir):
+            raise FileNotFoundError(f"LR directory not found: {lr_dir}")
+
 
         self.hr_filenames = sorted([join(hr_dir, x) for x in listdir(hr_dir) if is_image_file(x)])
         self.lr_filenames = sorted([join(lr_dir, x) for x in listdir(lr_dir) if is_image_file(x)])
