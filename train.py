@@ -82,8 +82,8 @@ print("===> Loading datasets")
 # Training Dataset
 trainset = DIV2K.div2k(args)
 testset = Set5_val.DatasetFromFolderVal(
-    "Test_Datasets/Set5/X{}/HR".format(args.scale),
-    "Test_Datasets/Set5/X{}/LR".format(args.scale),
+    "dataset/BSD100/image_SRF_3",
+    "dataset/BSD100/image_SRF_3",
     args.scale
 )
 training_data_loader = DataLoader(dataset=trainset, num_workers=args.threads, batch_size=args.batch_size, shuffle=True, pin_memory=True, drop_last=True)
@@ -140,7 +140,7 @@ try:
 
     run = wandb.init(
         #  add name here for label
-        name = "attempt3", ## Wandb creates random run names if you skip this field
+        name = "BSD-attempt1", ## Wandb creates random run names if you skip this field
         reinit = True, ### Allows reinitalizing runs when you re-run this cell
         # run_id = ### Insert specific run id here if you want to resume a previous run
         # resume = "must" ### You need this to resume previous runs, but comment out reinit = True when using this
