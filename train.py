@@ -59,6 +59,8 @@ parser.add_argument("--isY", action="store_true", default=True)
 parser.add_argument("--ext", type=str, default='.npy')
 parser.add_argument("--phase", type=str, default='train')
 parser.add_argument("--model", type=str, default='ESRT')
+parser.add_argument("--wandb_run", type=str, default='VIHAN_MERGED_RUNS')
+
 #  No need for tests
 
 args = parser.parse_args()
@@ -151,7 +153,7 @@ try:
 
     run = wandb.init(
         #  add name here for label
-        name = "attempt3", ## Wandb creates random run names if you skip this field
+        name = str(args.wandb_run), ## Wandb creates random run names if you skip this field
         reinit = True, ### Allows reinitalizing runs when you re-run this cell
         # run_id = ### Insert specific run id here if you want to resume a previous run
         # resume = "must" ### You need this to resume previous runs, but comment out reinit = True when using this
@@ -447,11 +449,11 @@ def save_best_psnr():
 
 def save_best_ssim():
     model_folder = "experiment/checkpoint_ESRT_x{}/".format(args.scale)
-    model_out_path = model_folder + "best_ssir.pth"
+    model_out_path = model_folder + "ssim.pth"
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
     torch.save(model.state_dict(), model_out_path)
-
+sav
     print("===> BEST SSIM Checkpoint saved to {}".format(model_out_path))
 
 def print_network(net):
