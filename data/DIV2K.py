@@ -4,13 +4,13 @@ import cv2
 import numpy as np
 from data import common
 from utils import base_path
-
+from PIL import Image
 
 def default_loader(path):
     return cv2.imread(path, cv2.IMREAD_UNCHANGED)[:, :, [2, 1, 0]]
 
 def npy_loader(path):
-    return np.load(path)
+    return np.load(path) 
 
 IMG_EXTENSIONS = [
     '.png', '.npy',
@@ -23,7 +23,7 @@ def is_image_file(filename):
 
 def make_dataset(dir):
     images = []
-    dir = base_path + dir
+    # dir = base_path + dir
     print(dir)
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
 

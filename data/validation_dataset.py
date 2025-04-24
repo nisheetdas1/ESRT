@@ -1,12 +1,18 @@
 import torch.utils.data as data
-from os.path import join, dirname, abspath
+from os.path import join, dirname, abspath, exists
 from os import listdir
 from torchvision.transforms import Compose, ToTensor
 from PIL import Image
 import numpy as np
 import os
 
-from utils import base_path
+# Attempt to get base_path dynamically, but avoid using it for dataset paths
+try:
+    from utils import base_path
+except ImportError:
+    # Fallback if utils or base_path is not available
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    print(f"Warning: Could not import base_path from utils. Using fallback: {base_path}")
 
 
 # base_path = dirname(abspath('train.py'))
@@ -37,13 +43,20 @@ def load_image(filepath):
 class DatasetFromFolderVal(data.Dataset):
     def __init__(self, base_val_dir, upscale):
         super(DatasetFromFolderVal, self).__init__()
-        base_val_dir = join(base_path, base_val_dir)
-        hr_dir = join(base_val_dir, 'HR')
-        lr_dir = join(base_val_dir, 'LR', f'X{upscale}')
+        # base_val_dir = join(base_path, base_val_dir) # <--- Remove this line
 
-        if not os.path.exists(hr_dir):
+        # Construct absolute paths based on the provided base_val_dir
+        # Assuming base_val_dir is relative to the execution directory of train.py
+        abs_base_val_dir = os.path.abspath(base_val_dir)
+        hr_dir = join(abs_base_val_dir, 'HR')
+        lr_dir = join(abs_base_val_dir, 'LR', f'X{upscale}')
+
+        print(f"Looking for HR images in: {hr_dir}") # Debug print
+        print(f"Looking for LR images in: {lr_dir}") # Debug print
+
+        if not exists(hr_dir): # Use exists from os.path
             raise FileNotFoundError(f"HR directory not found: {hr_dir}")
-        if not os.path.exists(lr_dir):
+        if not exists(lr_dir): # Use exists from os.path
             raise FileNotFoundError(f"LR directory not found: {lr_dir}")
 
 
@@ -52,12 +65,23 @@ class DatasetFromFolderVal(data.Dataset):
         self.upscale = upscale
 
     def __getitem__(self, index):
-        input = load_image(self.lr_filenames[index])
-        target = load_image(self.hr_filenames[index])
-        input = np2tensor()(input)
-        target = np2tensor()(img_modcrop(target, self.upscale))
+        input_img = load_image(self.lr_filenames[index])
+        target_img = load_image(self.hr_filenames[index])
 
-        return input, target
+        # Apply modcrop before converting to tensor
+        target_img = img_modcrop(target_img, self.upscale)
+
+        input_tensor = np2tensor()(input_img)
+        target_tensor = np2tensor()(target_img)
+
+
+        return input_tensor, target_tensor
 
     def __len__(self):
+        # Ensure length is consistent between HR and LR lists
+        if len(self.lr_filenames) != len(self.hr_filenames):
+            print(f"Warning: Mismatch in number of LR ({len(self.lr_filenames)}) and HR ({len(self.hr_filenames)}) files.")
+            # Optionally, raise an error or take the minimum length
+            # raise ValueError("Number of LR and HR files must match")
+            return min(len(self.lr_filenames), len(self.hr_filenames))
         return len(self.lr_filenames)
