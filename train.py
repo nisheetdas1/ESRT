@@ -105,7 +105,6 @@ testing_data_loader = DataLoader(
 print("===> Building models")
 args.is_train = True
 
-
 model = esrt.ESRT(upscale = args.scale) #architecture.IMDN(upscale=args.scale)
 
 l1_criterion = nn.L1Loss()
@@ -116,25 +115,30 @@ if cuda:
     l1_criterion = l1_criterion.to(device)
 
 if args.pretrained:
-
     if os.path.isfile(args.pretrained):
         print("===> loading models '{}'".format(args.pretrained))
         checkpoint = torch.load(args.pretrained)
+        # if we saved a full checkpoint dict, pull out its parts
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            raw_state = checkpoint['model_state_dict']
+            # restore optimizer state if present
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            # resume epoch if stored
+            args.start_epoch = checkpoint.get('epoch', args.start_epoch)
+        else:
+            raw_state = checkpoint
+        # strip 'module.' if needed and load
         new_state_dcit = OrderedDict()
-        for k, v in checkpoint.items():
-            if 'module' in k:
-                name = k[7:]
-            else:
-                name = k
+        for k, v in raw_state.items():
+            name = k[7:] if k.startswith('module.') else k
             new_state_dcit[name] = v
         model_dict = model.state_dict()
         pretrained_dict = {k: v for k, v in new_state_dcit.items() if k in model_dict}
-
-        for k, v in model_dict.items():
+        for k in model_dict:
             if k not in pretrained_dict:
                 print(k)
         model.load_state_dict(pretrained_dict, strict=True)
-
     else:
         print("===> no models found at '{}'".format(args.pretrained))
 
@@ -432,7 +436,12 @@ def save_checkpoint(epoch):
     model_out_path = model_folder + "epoch_{}.pth".format(epoch)
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
-    torch.save(model.state_dict(), model_out_path)
+    # save full training state
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }, model_out_path)
 
     print("===> Checkpoint saved to {}".format(model_out_path))
 
@@ -442,7 +451,11 @@ def save_best_psnr():
     model_out_path = model_folder + "best_psnr.pth"
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
-    torch.save(model.state_dict(), model_out_path)
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }, model_out_path)
 
     print("===> BEST PSNR Checkpoint saved to {}".format(model_out_path))
 
@@ -452,9 +465,14 @@ def save_best_ssim():
     model_out_path = model_folder + "ssim.pth"
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
-    torch.save(model.state_dict(), model_out_path)
-sav
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }, model_out_path)
+
     print("===> BEST SSIM Checkpoint saved to {}".format(model_out_path))
+
 
 def print_network(net):
     num_params = 0
