@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from model import esrt #, architecture
+from model.loss import ArcFaceLoss, FeatureExtractorArcFace
 from data import DIV2K, Set5_val
 import utils
 import skimage.color as sc
@@ -59,6 +60,10 @@ parser.add_argument("--isY", action="store_true", default=True)
 parser.add_argument("--ext", type=str, default='.npy')
 parser.add_argument("--phase", type=str, default='train')
 parser.add_argument("--model", type=str, default='ESRT')
+parser.add_argument("--arcface_weight", type=float, default=0.5, 
+                    help="Weight for ArcFace loss (0-1). L1 weight will be 1-arcface_weight")
+parser.add_argument("--feature_dim", type=int, default=64,
+                    help="Feature dimension for ArcFace loss")
 #  No need for tests
 
 args = parser.parse_args()
@@ -106,12 +111,19 @@ args.is_train = True
 
 model = esrt.ESRT(upscale=args.scale)  # architecture.IMDN(upscale=args.scale)
 
+# Initialize both L1 and ArcFace loss
 l1_criterion = nn.L1Loss()
+arcface_criterion = ArcFaceLoss(feature_dim=args.feature_dim)
+
+# Feature extractor for ArcFace loss - separate module for feature extraction
+feature_extractor = FeatureExtractorArcFace(in_channels=3, feature_dim=args.feature_dim)
 
 print("===> Setting GPU")
 if cuda:
     model = model.to(device)
     l1_criterion = l1_criterion.to(device)
+    arcface_criterion = arcface_criterion.to(device)
+    feature_extractor = feature_extractor.to(device)
 
 if args.pretrained:
 
@@ -147,7 +159,10 @@ try:
         'epoch': args.nEpochs,
         'lr': args.lr,
         'gamma': args.gamma,
-        'batch_size': args.batch_size
+        'batch_size': args.batch_size,
+        'arcface_weight': args.arcface_weight,
+        'feature_dim': args.feature_dim,
+        'loss_type': 'L1+ArcFace'
     }
 
 
@@ -169,7 +184,8 @@ except Exception as e:
 
 print("===> Setting Optimizer")
 
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
+# Include both the model and feature extractor parameters in the optimizer
+optimizer = optim.Adam(list(model.parameters()) + list(feature_extractor.parameters()), lr=args.lr)
 
 
 def train(epoch) -> float:
@@ -206,17 +222,27 @@ def train(epoch) -> float:
                 hr_tensor = hr_tensor[:, :, hr_h_offset:hr_h_offset + min_h, hr_w_offset:hr_w_offset + min_w]
                 # print(f"After cropping - SR: {sr_tensor.size()}, HR: {hr_tensor.size()}")
 
+            # Compute L1 loss as before
             loss_l1 = l1_criterion(sr_tensor, hr_tensor)
-            loss_sr = loss_l1
-            total_loss += loss_l1.item()
+            
+            # Compute ArcFace loss
+            loss_arcface = arcface_criterion(sr_tensor, hr_tensor)
+            
+            # Combined loss - weighted sum of L1 and ArcFace based on the command line argument
+            arcface_w = args.arcface_weight
+            l1_w = 1.0 - arcface_w
+            loss_sr = l1_w * loss_l1 + arcface_w * loss_arcface
+            
+            total_loss += loss_sr.item()
             total_batches += 1
 
             loss_sr.backward()
             optimizer.step()
 
             if iteration % 10 == 0:
-                print("===> Epoch[{}]({}/{}): Loss_l1: {:.5f}".format(epoch, iteration, len(training_data_loader),
-                                                                      loss_l1.item()))
+                print("===> Epoch[{}]({}/{}): Loss_l1: {:.5f}, Loss_arcface: {:.5f}, Total: {:.5f}".format(
+                    epoch, iteration, len(training_data_loader), 
+                    loss_l1.item(), loss_arcface.item(), loss_sr.item()))
         except Exception as e:
             print(f"Error in training iteration {iteration}: {str(e)}")
             # Skip this batch and continue
@@ -524,7 +550,9 @@ for epoch in range(args.start_epoch, args.nEpochs + 1):
             'epoch': epoch,
             'train_loss': train_loss_for_epoch,
             'psnr': psnr,
-            'ssim': ssim
+            'ssim': ssim,
+            'l1_loss': loss_l1.item() if 'loss_l1' in locals() else 0,
+            'arcface_loss': loss_arcface.item() if 'loss_arcface' in locals() else 0
         }
 
         # Log to wandb if available
