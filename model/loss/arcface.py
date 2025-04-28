@@ -6,17 +6,15 @@ import math
 class ArcFaceLoss(nn.Module):
     """
     ArcFace Loss for Super Resolution
-    Adapted from the original ArcFace paper for image super-resolution tasks.
+    Adapted for use with ESRT model's internal features.
     
     Args:
-        feature_dim (int): Dimension of the feature embeddings
         s (float): Scaling factor for the cosine values
         m (float): Margin parameter to enforce separation between classes
         easy_margin (bool): Use the easy margin version
     """
-    def __init__(self, feature_dim=32, s=30.0, m=0.50, easy_margin=False):
+    def __init__(self, s=30.0, m=0.50, easy_margin=False):
         super(ArcFaceLoss, self).__init__()
-        self.feature_dim = feature_dim
         self.s = s  # scale factor
         self.m = m  # margin
         self.easy_margin = easy_margin
@@ -25,32 +23,23 @@ class ArcFaceLoss(nn.Module):
         self.th = math.cos(math.pi - m)
         self.mm = math.sin(math.pi - m) * m
         
-        # Feature extractor for both LR and HR images
-        self.feature_extractor = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(64, feature_dim),
-            nn.BatchNorm1d(feature_dim)
-        )
+        # Global pooling and normalization
+        self.gap = nn.AdaptiveAvgPool2d(1)
         
-    def forward(self, sr_tensor, hr_tensor):
+    def forward(self, sr_features, hr_features):
         """
         Forward pass for ArcFace loss
         
         Args:
-            sr_tensor (torch.Tensor): Super-resolved images [B, C, H, W]
-            hr_tensor (torch.Tensor): High-resolution ground truth images [B, C, H, W]
+            sr_features (torch.Tensor): Features from super-resolved images 
+            hr_features (torch.Tensor): Features from high-resolution images
             
         Returns:
             torch.Tensor: Computed ArcFace loss
         """
-        # Extract features from both SR and HR images
-        sr_features = self.feature_extractor(sr_tensor)  # [B, feature_dim]
-        hr_features = self.feature_extractor(hr_tensor)  # [B, feature_dim]
+        # Apply global average pooling and flatten
+        sr_features = self.gap(sr_features).view(sr_features.size(0), -1)
+        hr_features = self.gap(hr_features).view(hr_features.size(0), -1)
         
         # Normalize features to be unit vectors
         sr_features = F.normalize(sr_features, p=2, dim=1)
@@ -74,27 +63,44 @@ class ArcFaceLoss(nn.Module):
         return arcface_loss.mean()
 
 
-class FeatureExtractorArcFace(nn.Module):
+class ExtractFeaturesForArcFace(nn.Module):
     """
-    A feature extractor module to be used with the main SR model
-    Extracts features from both SR and HR images for ArcFace loss computation
+    A hook-like module that extracts intermediate features from ESRT model for ArcFace loss
     """
-    def __init__(self, in_channels=3, feature_dim=64):
-        super(FeatureExtractorArcFace, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(128, feature_dim),
-            nn.BatchNorm1d(feature_dim)
-        )
+    def __init__(self):
+        super(ExtractFeaturesForArcFace, self).__init__()
+    
+    def forward(self, model, lr_tensor, hr_tensor):
+        """
+        Extract features from both LR and SR paths for ArcFace calculation
         
-    def forward(self, x):
-        return self.features(x)
+        Args:
+            model: The ESRT model
+            lr_tensor: Low-resolution input tensor
+            hr_tensor: High-resolution ground truth tensor
+            
+        Returns:
+            Tuple of (sr_features, hr_features, sr_output)
+        """
+        # Extract features from the input HR image
+        with torch.no_grad():
+            # Extract HR features at the same layer depth as we will for SR
+            hr_features = model.head(hr_tensor)
+            for i in range(model.n_blocks):
+                hr_features = model.body[i](hr_features)
+        
+        # Forward pass through the model to get SR features and output
+        lr_features = model.head(lr_tensor)
+        # Capture intermediate features before final upsampling
+        sr_features = lr_features
+        for i in range(model.n_blocks):
+            sr_features = model.body[i](sr_features)
+            
+        # Continue to generate the SR output for standard L1 loss
+        body_out = [sr_features]
+        res1 = torch.cat(body_out, 1)
+        res1 = model.reduce(res1)
+        sr_output = model.tail(res1)
+        sr_output = model.up(lr_features) + sr_output
+        
+        return sr_features, hr_features, sr_output
